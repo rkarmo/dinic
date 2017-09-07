@@ -9,6 +9,10 @@ implemented for simple oriented graphs */
 
 #define uv 0
 #define vu 1
+
+#define MAXN 10000
+#define MAXM 1000000
+
 #define DEBUG 1
 
 //We assume that every edge also has its opposite edge. If not,
@@ -23,28 +27,28 @@ typedef struct edge {
 
 void sort_edges(edge_t* G, int n, int m)
 {
-  int *offset = calloc(n + 1,  sizeof(int));
+  int *bucket = calloc(n + 1,  sizeof(int));
   edge_t *by2nd = malloc(m * sizeof(edge_t));
   for (int i = 0; i < m; i++) {
-    offset[G[i].v]++;
+    bucket[G[i].v]++;
   }
   for (int i = 1; i <= n; i++) {
-    offset[i] += offset[i - 1];
+    bucket[i] += bucket[i - 1];
   }
   for (int i = 0; i < m; i++) {
-    by2nd[--offset[G[i].v]] = G[i];
+    by2nd[--bucket[G[i].v]] = G[i];
   }
-  memset(offset, 0, (n + 1) * sizeof(int));
+  memset(bucket, 0, (n + 1) * sizeof(int));
   for (int i = 0; i < m; i++) {
-    offset[G[i].u]++;
+    bucket[G[i].u]++;
   }
   for (int i = 1; i <= n; i++) {
-    offset[i] += offset[i - 1];
+    bucket[i] += bucket[i - 1];
   }
-    for (int i = m - 1; i >= 0; i--) {
-    G[--offset[by2nd[i].u]] = by2nd[i];
+  for (int i = m - 1; i >= 0; i--) {
+    G[--bucket[by2nd[i].u]] = by2nd[i];
   }
-  free(offset);
+  free(bucket);
   free(by2nd); 
 }
 
@@ -83,6 +87,79 @@ int merge_edges(edge_t *G, int n, int m)
 
 int n, m; //# of vertices/edges
 int s, t; //source and sink
+int l; //distance of source and sink
+
+int V[MAXN + 1];
+int E[2 * MAXM];
+int lvl[MAXN];
+int c[MAXM];
+int f[MAXM];
+int outdeg[MAXN];
+
+//vertex queue for various purposes
+int Q[MAXN];
+int Qsize;
+
+//vertex stack for various purposes
+int S[MAXN];
+int Stop;
+
+static void create_reserve_network(edge_t *G)
+{
+  memset(V, 0, (n + 1) * sizeof(int));
+
+  for (int i = 0; i < m; i++) {
+    if (G[i].c[uv] - G[i].f[uv] + G[i].f[vu] > 0) {
+      V[G[i].u]++;
+    }
+    if (G[i].c[vu] - G[i].f[vu] + G[i].f[uv] > 0) {
+      V[G[i].v]++;
+    }
+  }
+  for (int i = 1; i <= n; i++) {
+    V[i] += V[i-1];
+  }
+  for (int i = 0; i < m; i++) {
+    if (G[i].c[uv] - G[i].f[uv] + G[i].f[vu] > 0) {
+      E[--V[G[i].u]] = G[i].v;
+    }
+    if (G[i].c[vu] - G[i].f[vu] + G[i].f[uv] > 0) {
+      E[--V[G[i].v]] = G[i].u;
+    }
+  }
+}
+
+static void calculate_levels()
+{
+  Qsize = 0;
+  for (int i = 0; i < n; i++) {
+    lvl[i] = -1;
+  }
+
+  Q[Qsize++] = s;
+  lvl[s] = 0;
+  for (int q = 0; q < Qsize; q++) {
+    int u = Q[q];
+    for (int i = V[u]; i < V[u + 1]; i++) {
+      int v = E[i];
+      if (lvl[v] == -1) {
+        lvl[v] = lvl[u] + 1;
+        Q[Qsize++] = v;
+      }
+    }
+  }
+  l = lvl[t];
+}
+
+static void clean_reserve_network(edge_t *G)
+{
+  memset(V, 0, (n + 1) * sizeof(int));
+
+  for (int i = 0; i < m; i++) {
+    if ( (G[i].u == t || lvl[G[i].u]) ) {
+    }
+  }
+}
 
 int main(void)
 {
@@ -107,7 +184,11 @@ int main(void)
   }
 
   m = merge_edges(G, n, m);
-  
+
+  for (int phase = 0; phase < n; phase++) {
+    create_reserve_network(G);
+  }
+
   free(G);
   return 0;
 }
