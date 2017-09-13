@@ -106,6 +106,7 @@ typedef struct vertex {
 int n, m; //# of vertices/edges
 int s, t; //source and sink
 int l; //distance of source and sink
+int reserve_m; //# of edges in the reserve network
 
 vertex_t V[MAXN];
 dedge_t E[2 * MAXM];
@@ -130,13 +131,16 @@ static void reset_vertex_data()
 static void create_reserve_network(edge_t *G)
 {
   reset_vertex_data();
+  reserve_m = 0;
 
   for (int i = 0; i < m; i++) {
     if (G[i].c[uv] - G[i].f[uv] + G[i].f[vu] > 0) {
       V[G[i].u].d_offset++;
+      reserve_m++;
     }
     if (G[i].c[vu] - G[i].f[vu] + G[i].f[uv] > 0) {
       V[G[i].v].d_offset++;
+      reserve_m++;
     }
   }
   for (int i = 1; i < n; i++) {
@@ -346,9 +350,31 @@ static void find_blocking_flow()
   }
 }
 
-static void augment_flow()
+static void augment_flow(edge_t *G)
 {
-
+  int offset;
+  for (int u = 0; u < n; u++) {
+    offset = (u < n-1) ? V[u + 1].d_idx : reserve_m;
+    for (int i = V[u].d_idx; i < offset; i++) {
+      if (E[i].f > 0) {
+        int idx = Gptr[i];
+        if (G[idx].u == u) {
+          G[idx].f[uv] += E[i].f;
+          if (G[idx].f[uv] > G[idx].c[uv]) {
+            G[idx].f[vu] -= G[idx].f[uv] - G[idx].c[uv];
+            G[idx].f[uv] = G[idx].c[uv];
+          }
+        }
+        else {
+          G[idx].f[vu] += E[i].f;
+          if (G[idx].f[vu] > G[idx].c[vu]) {
+            G[idx].f[uv] -= G[idx].f[vu] - G[idx].c[vu];
+            G[idx].f[vu] = G[idx].c[vu];
+          }
+        }
+      }
+    }
+  }
 }
 
 int main(void)
@@ -384,7 +410,7 @@ int main(void)
       break;
     }
     find_blocking_flow();
-    augment_flow();
+    augment_flow(G);
   }
 
   assert(!clean_reserve_network());
