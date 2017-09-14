@@ -87,6 +87,7 @@ typedef struct dedge { //directed edge in the reserve network
   int v; //target endpoint
   int c; //capacity
   int f; //flow
+  int idx; //index in the original edge list
 } dedge_t;
 
 typedef struct bedge { //edge leading back in the cleaned reserve network
@@ -112,7 +113,6 @@ vertex_t V[MAXN];
 dedge_t E[2 * MAXM];
 bedge_t Eb[2 * MAXM];
 
-int Gptr[2 * MAXM];
 int path[MAXN]; //path in the cleaned reserve network
 
 //vertex queue for various purposes
@@ -153,7 +153,7 @@ static void create_reserve_network(edge_t *G)
       E[idx].c = G[i].c[uv] - G[i].f[uv] + G[i].f[vu];
       E[idx].f = 0;
       // save the position of the edge in original list for final flow augmentation
-      Gptr[idx] = i;
+      E[idx].idx = i;
     }
     if (G[i].c[vu] - G[i].f[vu] + G[i].f[uv] > 0) {
       int idx = V[G[i].v].d_idx + V[G[i].v].outdeg++;
@@ -161,7 +161,7 @@ static void create_reserve_network(edge_t *G)
       E[idx].c = G[i].c[vu] - G[i].f[vu] + G[i].f[uv];
       E[idx].f = 0;
       // save the position of the edge in original list for final flow augmentation
-      Gptr[idx] = i;
+      E[idx].idx = i;
     }
   }
 }
@@ -229,6 +229,7 @@ static bool clean_reserve_network()
 
     //ignore vertices too far from the source
     if (V[i].lvl >= l) {
+      V[i].d_offset = 0;
       if (i != t) {
         V[i].alive = false;
       }
@@ -279,14 +280,11 @@ static bool clean_reserve_network()
 static int find_path()
 {
   if (DEBUG) {
-    printf("length of path %d\n", l);
-  }
-  if (DEBUG) {
     for (int i = 0; i < n; i++) {
       printf("%d (%d, %d): ", i, V[i].d_offset, V[i].outdeg);
       for (int j = V[i].d_idx; j < V[i].d_idx + V[i].d_offset; j++) {
         if (V[E[j].v].alive) {
-          printf("%d (%d), ", E[j].v, E[j].c);
+          printf("%d (%d), ", E[j].v, E[j].c - E[j].f);
         }
       }
       printf("\n");
@@ -357,7 +355,7 @@ static void augment_flow(edge_t *G)
     offset = (u < n-1) ? V[u + 1].d_idx : reserve_m;
     for (int i = V[u].d_idx; i < offset; i++) {
       if (E[i].f > 0) {
-        int idx = Gptr[i];
+        int idx = E[i].idx;
         if (G[idx].u == u) {
           G[idx].f[uv] += E[i].f;
           if (G[idx].f[uv] > G[idx].c[uv]) {
