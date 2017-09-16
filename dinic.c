@@ -13,7 +13,7 @@ implemented for simple oriented graphs */
 #define MAXN 10000
 #define MAXM 1000000
 #define MAXFLOW INT_MAX //max flow on one edge
-#define DEBUG 1
+#define DEBUG 0
 
 //We assume that every edge also has its opposite edge. If not,
 //we add it with capacity 0.
@@ -265,14 +265,15 @@ static bool clean_reserve_network()
   for (int i = 0; i < n; i++) {
     for (int j = V[i].d_idx; j < V[i].d_idx + V[i].d_offset; j++) {
       //back ref for the edge i --> E[j].v
-      Eb[V[E[j].v].b_offset].u = i;
-      Eb[V[E[j].v].b_offset++].idx = j;
+      int idx = V[E[j].v].b_idx + V[E[j].v].b_offset++;
+      Eb[idx].u = i;
+      Eb[idx].idx = j;
     }
   }
-
+ 
   //clean dead ends from the queue
   clean_dead_ends();
- 
+
   return true;
 }
 
@@ -280,6 +281,7 @@ static bool clean_reserve_network()
 static int find_path()
 {
   if (DEBUG) {
+    printf("PHASE OF LENGTH %d\n", l);
     for (int i = 0; i < n; i++) {
       printf("%d (%d, %d): ", i, V[i].d_offset, V[i].outdeg);
       for (int j = V[i].d_idx; j < V[i].d_idx + V[i].d_offset; j++) {
@@ -295,13 +297,12 @@ static int find_path()
   int maxaug = MAXFLOW, aug, idx; 
   
   for (int i = 0; i < l; i++) {
-    idx = V[u].d_idx + V[u].d_offset - 1;
 
     //lazy elimination of dead vertices
-
-    while (V[u].d_offset > 0 && !V[E[idx].v].alive) {
+    while (V[u].d_offset > 0 && !V[E[V[u].d_idx + V[u].d_offset - 1].v].alive) {
       --V[u].d_offset;
     }
+    idx = V[u].d_idx + V[u].d_offset - 1;
     
     //check for non-existent path
     if (V[u].outdeg == 0) {
